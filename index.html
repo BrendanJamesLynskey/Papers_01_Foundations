@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Papers 01 — Foundations: The Transformer &amp; Pretraining</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-card: #0d1117;
+            --bg-code: #161b22;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #76B900;
+            --accent-dim: #76B90044;
+            --accent-glow: #76B90033;
+            --border: #21262d;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --font-body: 'Inter', sans-serif;
+            --max-width: 900px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .hero > * { position: relative; z-index: 1; }
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+        .hero h1 .accent { color: var(--accent); }
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 640px;
+            margin-bottom: 2rem;
+        }
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .pipeline-arrow { color: var(--accent); font-size: 0.9rem; font-weight: 700; }
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .slide p { margin-bottom: 1rem; color: var(--text-secondary); }
+        .slide p strong { color: var(--text-primary); }
+        .slide ul, .slide ol { margin-bottom: 1rem; padding-left: 1.5rem; color: var(--text-secondary); }
+        .slide li { margin-bottom: 0.4rem; }
+        .slide li strong { color: var(--text-primary); }
+        .slide code {
+            font-family: var(--font-mono);
+            font-size: 0.88em;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            padding: 0.05rem 0.35rem;
+            border-radius: 3px;
+            color: #c9d1d9;
+        }
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(118, 185, 0, 0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .code-block pre { margin: 0; padding: 1rem; overflow-x: auto; }
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #c9d1d9;
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+        .kw { color: #ff7b72; }
+        .fn { color: #d2a8ff; }
+        .str { color: #a5d6ff; }
+        .cm { color: #8b949e; font-style: italic; }
+        .num { color: #79c0ff; }
+        .type { color: #ffa657; }
+        .dir { color: #ff7b72; }
+        .mac { color: #ffa657; }
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) td { background: rgba(13, 17, 23, 0.5); }
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+        .diagram-box.accent { border-color: var(--accent); color: var(--accent); background: rgba(118, 185, 0, 0.08); }
+        .diagram-box.dim { color: var(--text-secondary); border-color: var(--border); }
+        .diagram-arrow { color: var(--accent); font-size: 1.3rem; font-weight: 700; }
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-vertical .diagram-arrow { font-size: 1.1rem; }
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .hierarchy-level { display: flex; align-items: center; gap: 0.75rem; }
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+        .hierarchy-items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .hierarchy-item.accent { border-color: var(--accent); color: var(--accent); background: rgba(118, 185, 0, 0.08); }
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+        .diagram-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+        .diagram-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .diagram-panel.accent-border { border-left: 3px solid var(--accent); }
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        .diagram-panel p, .diagram-panel ul { font-size: 0.85rem; }
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+        .callout p { margin-bottom: 0; }
+        .callout p + p { margin-top: 0.5rem; }
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+        .contents-list { list-style: none; padding-left: 0; counter-reset: contents; }
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .contents-list li:last-child { border-bottom: none; }
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+        .contents-list a { color: var(--text-primary); text-decoration: none; transition: color 0.2s; }
+        .contents-list a:hover { color: var(--accent); }
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+        .footer a { color: var(--accent); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+        .canvas-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+        }
+        .canvas-wrap canvas, .canvas-wrap svg { display: block; margin: 0 auto; max-width: 100%; }
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+            margin-left: 0.3rem;
+        }
+        .badge.ok    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .badge.warn  { border-color: #ffa657; color: #ffa657; background: rgba(255,166,87,0.08); }
+        .badge.bad   { border-color: #ff7b72; color: #ff7b72; background: rgba(255,123,114,0.08); }
+        @media (max-width: 640px) {
+            .slide { padding: 3rem 1rem; min-height: auto; }
+            .slide-number { font-size: 3rem; top: 1.5rem; right: 1rem; }
+            .slide h2 { font-size: 1.5rem; }
+            .diagram-grid.cols-2, .diagram-grid.cols-3 { grid-template-columns: 1fr; }
+            .pipeline { gap: 0.15rem; }
+            .pipeline-step { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+            .hero h1 { font-size: 1.8rem; }
+            table { font-size: 0.78rem; }
+        }
+    </style>
+</head>
+<body>
+<header class="hero">
+    <div class="series-label">Key LLM Publications Series &mdash; Presentation 01</div>
+    <h1>Foundations &mdash; The <span class="accent">Transformer</span> &amp; Pretraining</h1>
+    <p class="subtitle">The five papers that built modern LLMs: self-attention replaces recurrence, pretraining replaces task-specific training, in-context learning emerges at scale, and scaling laws turn model design into an engineering science.</p>
+    <div class="tags">
+        <span class="tag">Transformer</span>
+        <span class="tag">Attention</span>
+        <span class="tag">BERT</span>
+        <span class="tag">GPT-3</span>
+        <span class="tag">Scaling Laws</span>
+        <span class="tag">Chinchilla</span>
+    </div>
+    <div class="pipeline">
+        <span class="pipeline-step">Self-Attention</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Pretraining</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Few-Shot</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Scaling Laws</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Compute-Optimal</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>The Five Papers</h2>
+    <ul class="contents-list">
+        <li><a href="#slide-01">Attention Is All You Need &mdash; the Transformer</a></li>
+        <li><a href="#slide-02">BERT &mdash; Bidirectional Pretraining for Understanding</a></li>
+        <li><a href="#slide-03">GPT-3 &mdash; Language Models are Few-Shot Learners</a></li>
+        <li><a href="#slide-04">Scaling Laws for Neural Language Models</a></li>
+        <li><a href="#slide-05">Chinchilla &mdash; Training Compute-Optimal LLMs</a></li>
+        <li><a href="#slide-06">What to Take Away</a></li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>Attention Is All You Need</h2>
+    <p style="font-family:var(--font-mono);font-size:0.85rem;">Vaswani, Shazeer, Parmar, Uszkoreit, Jones, Gomez, Kaiser &amp; Polosukhin (Google Brain / Google Research) &mdash; 2017 <span class="badge ok">NeurIPS 2017</span> <span class="badge">arXiv:1706.03762</span></p>
+    <h3>The problem</h3>
+    <p>The dominant sequence-transduction models in 2017 were recurrent (LSTM/GRU) encoder&ndash;decoders, optionally with attention bolted on. Recurrence is <strong>inherently sequential</strong>: hidden state <code>h&#x209C;</code> depends on <code>h&#x209C;&#x208B;&#x2081;</code>, so you cannot parallelise across the time dimension within a training example. This caps throughput and makes long-range dependencies hard to learn because the signal must traverse <code>O(n)</code> sequential steps.</p>
+    <h3>The contribution</h3>
+    <p>The Transformer <strong>dispenses with recurrence and convolution entirely</strong>, relying only on attention. The core building blocks:</p>
+    <ul>
+        <li><strong>Scaled dot-product attention</strong>: <code>Attention(Q,K,V) = softmax(QK&#x1D40;/&radic;d&#x2096;)V</code>. The <code>&radic;d&#x2096;</code> scaling keeps dot products out of the softmax saturation region as dimension grows.</li>
+        <li><strong>Multi-head attention</strong>: run <code>h=8</code> attention functions in parallel on learned projections of Q, K, V, then concatenate. Each head can attend to a different relationship (syntax, coreference, position).</li>
+        <li><strong>Positional encodings</strong>: since attention is permutation-invariant, fixed sinusoidal signals are added to inputs to inject order.</li>
+        <li><strong>Encoder&ndash;decoder stack</strong>: N=6 identical layers each side, with residual connections, layer norm, and position-wise feed-forward sub-layers.</li>
+    </ul>
+    <p>Crucially, every position attends to every other position in <strong>one parallel operation</strong> &mdash; <code>O(1)</code> sequential path length &mdash; making training massively parallel on GPUs/TPUs.</p>
+    <div class="canvas-wrap">
+        <svg viewBox="0 0 720 240" width="720" height="240" xmlns="http://www.w3.org/2000/svg">
+            <style>
+                .at-box { fill: #161b22; stroke: #21262d; stroke-width: 1; rx: 6; }
+                .at-acc { fill: rgba(118,185,0,0.08); stroke: #76B900; stroke-width: 1; }
+                .at-lbl { fill: #e6edf3; font-family: 'JetBrains Mono', monospace; font-size: 12px; text-anchor: middle; }
+                .at-sub { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-anchor: middle; }
+                .at-acclbl { fill: #76B900; font-family: 'JetBrains Mono', monospace; font-size: 12px; text-anchor: middle; }
+                .at-ttl { fill: #76B900; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 12px; }
+                .at-arr { stroke: #76B900; stroke-width: 1.5; fill: none; marker-end: url(#ah); }
+            </style>
+            <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#76B900"/></marker></defs>
+            <text x="10" y="18" class="at-ttl">Scaled dot-product attention</text>
+            <rect x="20"  y="100" width="70" height="34" class="at-acc" rx="6"/><text x="55"  y="121" class="at-acclbl">Q</text>
+            <rect x="20"  y="40"  width="70" height="34" class="at-box" rx="6"/><text x="55"  y="61"  class="at-lbl">K</text>
+            <rect x="20"  y="160" width="70" height="34" class="at-box" rx="6"/><text x="55"  y="181" class="at-lbl">V</text>
+            <rect x="150" y="70"  width="110" height="34" class="at-box" rx="6"/><text x="205" y="86"  class="at-lbl">Q&middot;K&#x1D40;</text><text x="205" y="99" class="at-sub">matmul</text>
+            <rect x="300" y="70"  width="110" height="34" class="at-box" rx="6"/><text x="355" y="86"  class="at-lbl">&divide; &radic;d&#x2096;</text><text x="355" y="99" class="at-sub">scale</text>
+            <rect x="450" y="70"  width="110" height="34" class="at-acc" rx="6"/><text x="505" y="91"  class="at-acclbl">softmax</text>
+            <rect x="600" y="100" width="110" height="34" class="at-acc" rx="6"/><text x="655" y="121" class="at-acclbl">&middot; V &rarr; out</text>
+            <path d="M90 110 L150 90" class="at-arr"/>
+            <path d="M90 57  L150 84" class="at-arr"/>
+            <path d="M260 87 L300 87" class="at-arr"/>
+            <path d="M410 87 L450 87" class="at-arr"/>
+            <path d="M560 87 L598 110" class="at-arr"/>
+            <path d="M90 177 L598 122" class="at-arr"/>
+            <text x="360" y="225" class="at-sub">Multi-head: run h=8 of these in parallel on learned projections, then concat &rarr; linear</text>
+        </svg>
+    </div>
+    <h3>Why it matters to a practising engineer</h3>
+    <p>Every model you deploy &mdash; GPT-4, Llama, Claude, BGE, the reranker in your RAG stack &mdash; is a Transformer. The <code>O(n&sup2;)</code> attention cost is the reason context windows are expensive and the target of every efficiency trick you will ever tune (FlashAttention, KV-cache, GQA, sliding-window, sparse attention). You cannot reason about latency, memory, or context limits without internalising this paper.</p>
+    <div class="callout">
+        <div class="callout-label">The insight</div>
+        <p>The title was a provocation that turned out to be literally true. Removing recurrence did not just speed up training &mdash; it made <strong>scale itself</strong> tractable. Every subsequent paper in this deck exists because the Transformer turned "train a bigger model" from an <code>O(n)</code>-sequential nightmare into an embarrassingly parallel matmul problem.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>BERT: Pre-training of Deep Bidirectional Transformers</h2>
+    <p style="font-family:var(--font-mono);font-size:0.85rem;">Devlin, Chang, Lee &amp; Toutanova (Google AI Language) &mdash; 2018 <span class="badge ok">NAACL 2019</span> <span class="badge">arXiv:1810.04805</span></p>
+    <h3>The problem</h3>
+    <p>Earlier pretrained language models (ELMo, GPT-1) were <strong>unidirectional</strong>: they predicted the next token left-to-right, so each token's representation could only see prior context. For <em>understanding</em> tasks &mdash; classification, NER, span extraction &mdash; this is a handicap: the meaning of a word depends on tokens to its right as much as its left.</p>
+    <h3>The contribution</h3>
+    <p>BERT is an <strong>encoder-only</strong> Transformer pretrained with two self-supervised objectives that allow deep, jointly-bidirectional context:</p>
+    <ul>
+        <li><strong>Masked Language Modelling (MLM)</strong>: randomly mask 15% of input tokens and predict them from <em>both</em> directions. Because the target is hidden, the model can attend left and right without trivially "seeing" the answer &mdash; the trick that unlocks bidirectionality.</li>
+        <li><strong>Next-Sentence Prediction (NSP)</strong>: given two segments, predict whether B actually follows A, teaching inter-sentence relationships (useful for QA / NLI).</li>
+    </ul>
+    <p>The headline result was the <strong>pretrain &rarr; fine-tune paradigm</strong>: pretrain once on unlabelled text (BooksCorpus + Wikipedia), then fine-tune the <em>same</em> weights with one extra output layer for each downstream task. BERT-large (340M params) set state-of-the-art on 11 NLP tasks at once.</p>
+    <div class="diagram-flow">
+        <div class="diagram-box dim">Unlabelled text<br><small>Wiki + Books</small></div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box accent">Pretrain<br><small>MLM + NSP</small></div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box">General BERT<br><small>frozen-ish weights</small></div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box accent">Fine-tune<br><small>+ 1 task head</small></div>
+        <div class="diagram-arrow">&rarr;</div>
+        <div class="diagram-box accent">NER / QA / class.</div>
+    </div>
+    <h3>Why it matters to a practising engineer</h3>
+    <p>BERT and its descendants (RoBERTa, DeBERTa, and the entire <code>sentence-transformers</code> family) are still the workhorses of <strong>retrieval and reranking</strong>. The embedding models and cross-encoders in your RAG pipeline are BERT-lineage encoders. When a model card says "based on BERT" or "mean-pooled MLM encoder", this is the paper that defines what that means. It also established the mental model &mdash; <em>pretrain broad, adapt narrow</em> &mdash; that still governs how you think about fine-tuning vs prompting.</p>
+    <div class="callout">
+        <div class="callout-label">The insight</div>
+        <p>BERT split the world into two architectural lineages that persist today: <strong>encoder-only</strong> models optimised for <em>understanding</em> (embeddings, classification) and <strong>decoder-only</strong> models optimised for <em>generation</em> (GPT-style). Knowing which family a model belongs to tells you instantly what it is good at &mdash; and BERT's MLM objective is precisely why encoders make better embeddings than raw decoders.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>Language Models are Few-Shot Learners (GPT-3)</h2>
+    <p style="font-family:var(--font-mono);font-size:0.85rem;">Brown, Mann, Ryder, Subbiah et al. (OpenAI) &mdash; 2020 <span class="badge ok">NeurIPS 2020</span> <span class="badge">arXiv:2005.14165</span></p>
+    <h3>The problem</h3>
+    <p>The BERT paradigm required <strong>fine-tuning on thousands of labelled examples</strong> per task, with a separate set of weights for each. Humans, by contrast, perform a new language task from a short instruction and a handful of examples. Could a sufficiently large language model do the same with <em>no gradient updates</em>?</p>
+    <h3>The contribution</h3>
+    <p>GPT-3 is a <strong>175-billion-parameter decoder-only autoregressive</strong> Transformer &mdash; 10&times; larger than any prior dense model &mdash; trained to predict the next token on ~300B tokens of filtered Common Crawl, WebText, books and Wikipedia. The key empirical discovery is <strong>in-context learning</strong>: you can steer the model purely through the prompt.</p>
+    <ul>
+        <li><strong>Zero-shot</strong>: a task description only.</li>
+        <li><strong>One-shot</strong>: description + one worked example.</li>
+        <li><strong>Few-shot</strong>: description + K (typically 10&ndash;100) examples in the context window.</li>
+    </ul>
+    <p>No weights change &mdash; the "learning" happens entirely in the forward pass, conditioned on the prompt. Few-shot performance on many benchmarks approached fine-tuned models, and improved smoothly with model size.</p>
+    <div class="diagram-grid cols-3">
+        <div class="diagram-panel accent-border">
+            <h4>Zero-shot</h4>
+            <p><code>Translate to French:</code><br><code>cheese =&gt;</code></p>
+            <p>Task description only. The model infers the format from instruction + pretraining priors.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>One-shot</h4>
+            <p><code>Translate to French:</code><br><code>sea otter =&gt; loutre</code><br><code>cheese =&gt;</code></p>
+            <p>One demonstration anchors the output format and pattern.</p>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Few-shot</h4>
+            <p><code>Translate to French:</code><br><code>sea otter =&gt; loutre</code><br><code>plush =&gt; peluche</code><br><code>&hellip; (K examples)</code><br><code>cheese =&gt;</code></p>
+            <p>K demonstrations in-context. No gradient updates &mdash; ever.</p>
+        </div>
+    </div>
+    <h3>Why it matters to a practising engineer</h3>
+    <p>This paper invented the job of <strong>prompt engineering</strong> and is the direct ancestor of every few-shot prompt, system message, and tool-use schema you write today. It reframed adaptation from "collect data and fine-tune" to "write a good prompt" &mdash; the default first move for any new task. It also gave us the now-ubiquitous decoder-only autoregressive architecture that GPT-4, Llama, Mistral and Claude all share.</p>
+    <div class="callout">
+        <div class="callout-label">The insight</div>
+        <p>In-context learning was an <strong>emergent capability</strong> &mdash; it was not trained for, it appeared as a side-effect of scale. That single observation reframed the field: instead of designing clever objectives, just make the model bigger and new abilities fall out. The natural next question &mdash; <em>exactly how much does scale buy, and how do we spend it?</em> &mdash; is answered by the next two papers.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>Scaling Laws for Neural Language Models</h2>
+    <p style="font-family:var(--font-mono);font-size:0.85rem;">Kaplan, McCandlish, Henighan, Brown et al. (OpenAI) &mdash; 2020 <span class="badge warn">arXiv-only</span> <span class="badge">arXiv:2001.08361</span></p>
+    <h3>The problem</h3>
+    <p>GPT-style results showed that bigger is better, but model design was still guesswork. How does test loss actually depend on model size, dataset size and compute? Is there structure you can <em>extrapolate</em> from cheap small runs to predict an expensive large one?</p>
+    <h3>The contribution</h3>
+    <p>Kaplan et al. showed that cross-entropy test loss follows <strong>smooth power laws</strong> across more than seven orders of magnitude in each of three quantities, when not bottlenecked by the others:</p>
+    <ul>
+        <li><strong>Model parameters N</strong>: <code>L(N) &asymp; (N&#x2080;/N)<sup>&alpha;<sub>N</sub></sup></code></li>
+        <li><strong>Dataset size D</strong>: <code>L(D) &asymp; (D&#x2080;/D)<sup>&alpha;<sub>D</sub></sup></code></li>
+        <li><strong>Compute C</strong>: <code>L(C) &asymp; (C&#x2080;/C)<sup>&alpha;<sub>C</sub></sup></code></li>
+    </ul>
+    <p>Architecture details (width vs depth, attention heads) matter remarkably little compared to scale. Larger models are <strong>more sample-efficient</strong> &mdash; they reach a given loss with fewer tokens &mdash; so Kaplan concluded that for a fixed compute budget you should train <em>very large</em> models and stop well before convergence. (Slide 05 shows this conclusion was partly wrong.)</p>
+    <div class="canvas-wrap">
+        <svg viewBox="0 0 700 280" width="700" height="280" xmlns="http://www.w3.org/2000/svg">
+            <style>
+                .sl-ax { stroke: #21262d; stroke-width: 1; }
+                .sl-lbl { fill: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+                .sl-ttl { fill: #76B900; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 12px; }
+                .sl-curve { stroke: #76B900; stroke-width: 2.5; fill: none; }
+                .sl-fit { stroke: #ffa657; stroke-width: 1; stroke-dasharray: 4 3; fill: none; }
+            </style>
+            <text x="10" y="18" class="sl-ttl">Test loss vs compute &mdash; a straight line on log&ndash;log axes</text>
+            <line x1="80" y1="40"  x2="80"  y2="240" class="sl-ax"/>
+            <line x1="80" y1="240" x2="660" y2="240" class="sl-ax"/>
+            <text x="20" y="50"  class="sl-lbl">Loss</text>
+            <text x="14" y="145" class="sl-lbl" transform="rotate(-90 14 145)">log L</text>
+            <text x="560" y="262" class="sl-lbl">log Compute (C)</text>
+            <!-- power-law: straight descending line on log-log -->
+            <path d="M 95 70 L 645 215" class="sl-curve"/>
+            <path d="M 95 70 L 645 215" class="sl-fit"/>
+            <circle cx="180" cy="93" r="4" fill="#76B900"/>
+            <circle cx="320" cy="130" r="4" fill="#76B900"/>
+            <circle cx="470" cy="170" r="4" fill="#76B900"/>
+            <circle cx="600" cy="204" r="4" fill="#76B900"/>
+            <text x="190" y="88"  class="sl-lbl">small run</text>
+            <text x="480" y="165" class="sl-lbl">extrapolated &rarr; large run</text>
+            <text x="120" y="70"  class="sl-lbl">L &asymp; (C&#x2080;/C)^&alpha;</text>
+        </svg>
+    </div>
+    <h3>Why it matters to a practising engineer</h3>
+    <p>Scaling laws turned LLM development into an <strong>engineering discipline with a budget</strong>. They let you run small pilots and predict the loss of a model you cannot yet afford to train, choose model size before committing GPU-months, and reason about whether a project is worth the compute. The same power-law thinking underlies inference-cost modelling and the decision of when more data or more parameters will (and will not) help.</p>
+    <div class="callout">
+        <div class="callout-label">The insight</div>
+        <p>Predictability is the real product here. Once you know loss is a power law, you stop guessing and start <strong>budgeting</strong>: a few cheap runs forecast the expensive one. The catch &mdash; corrected next slide &mdash; is that Kaplan held dataset size roughly fixed and so over-weighted parameters and under-weighted tokens.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>Training Compute-Optimal LLMs (Chinchilla)</h2>
+    <p style="font-family:var(--font-mono);font-size:0.85rem;">Hoffmann, Borgeaud, Mensch, Buchatskaya et al. (DeepMind) &mdash; 2022 <span class="badge ok">NeurIPS 2022</span> <span class="badge">arXiv:2203.15556</span></p>
+    <h3>The problem</h3>
+    <p>Following Kaplan, the industry built ever-larger models (GPT-3 175B, Gopher 280B, Megatron-Turing 530B) trained on roughly fixed ~300B-token budgets. DeepMind asked the precise question: <strong>for a fixed compute budget C, what is the optimal split between model size N and training tokens D?</strong></p>
+    <h3>The contribution</h3>
+    <p>By training over 400 models across sizes and token counts and fitting the loss surface, Hoffmann et al. found that <strong>N and D should scale in roughly equal proportion</strong> &mdash; double the compute, double <em>both</em> parameters and tokens. The rule of thumb: about <strong>~20 training tokens per parameter</strong> for compute-optimality.</p>
+    <p>This implied that GPT-3, Gopher and peers were <strong>badly undertrained</strong> &mdash; far too big for the data they saw. The proof: <strong>Chinchilla (70B params, 1.4T tokens)</strong> uses the same compute as Gopher (280B params, 300B tokens) yet <em>outperforms</em> it across the board (MMLU, BIG-bench, reading comprehension), while being 4&times; smaller and far cheaper to run at inference.</p>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Model</th><th>Parameters</th><th>Training tokens</th><th>Tokens / param</th><th>MMLU (5-shot)</th></tr></thead>
+            <tbody>
+                <tr><td>Gopher</td><td>280 B</td><td>300 B</td><td>~1.1</td><td>60.0%</td></tr>
+                <tr><td>GPT-3</td><td>175 B</td><td>300 B</td><td>~1.7</td><td>43.9%</td></tr>
+                <tr><td><strong>Chinchilla</strong></td><td><strong>70 B</strong></td><td><strong>1.4 T</strong></td><td><strong>~20</strong></td><td><strong>67.6%</strong></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <h3>Why it matters to a practising engineer</h3>
+    <p>Chinchilla reset how the whole field allocates compute and explains the shape of the models you actually use. Llama-class models are deliberately "over-trained" past the Chinchilla point because the optimum is for <em>training</em> compute &mdash; when you also weigh <strong>inference</strong> cost, a smaller model trained on more tokens is far cheaper to serve. When choosing between a 70B and a 7B model, this paper is why the smaller, data-rich model is so often the right call.</p>
+    <div class="callout">
+        <div class="callout-label">The insight</div>
+        <p>The most influential correction in modern LLM practice: <strong>most early giant models were undertrained, not too small</strong>. "Compute-optimal" is not the same as "deployment-optimal" &mdash; for anything you serve at scale, push tokens up and parameters down past the Chinchilla line, because you pay for inference forever and training only once.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>What to Take Away</h2>
+    <ul>
+        <li><strong>The Transformer is the substrate.</strong> Self-attention replaced recurrence, made training embarrassingly parallel, and is the architecture under every model you will ever deploy. Its <code>O(n&sup2;)</code> cost is the root of every context-window and latency trade-off.</li>
+        <li><strong>Pretraining decoupled learning language from learning tasks.</strong> BERT's MLM established <em>pretrain&nbsp;&rarr;&nbsp;fine-tune</em> and the encoder lineage that still powers embeddings and rerankers.</li>
+        <li><strong>Scale produces emergent abilities.</strong> GPT-3 showed in-context (zero/one/few-shot) learning with no gradient updates &mdash; the origin of prompt engineering and the decoder-only generation stack.</li>
+        <li><strong>Scaling is predictable.</strong> Kaplan's power laws turned model design into budgeting: forecast the expensive run from cheap ones.</li>
+        <li><strong>Compute allocation matters as much as compute.</strong> Chinchilla's ~20-tokens-per-parameter rule showed most early models were undertrained &mdash; and that inference cost should push you to smaller, data-richer models.</li>
+        <li><strong>The through-line:</strong> attention made scale tractable &rarr; pretraining made it useful &rarr; few-shot revealed what scale unlocks &rarr; scaling laws made it predictable &rarr; Chinchilla made it efficient.</li>
+    </ul>
+    <div class="callout">
+        <div class="callout-label">Where to next</div>
+        <p>These five papers get you a capable but <em>unaligned</em> base model &mdash; one that predicts plausible text, not one that follows instructions or behaves safely. <strong>Presentation 02 &mdash; Alignment &amp; Fine-Tuning</strong> covers how we bridge that gap: instruction tuning, RLHF, and the techniques that turn a raw pretrained model into a helpful, steerable assistant.</p>
+    </div>
+</section>
+
+<footer class="footer">
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Key_Publications">Key LLM Publications Series</a></p>
+    <p style="margin-top:0.5rem;font-size:0.8rem;"><a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Key_Publications">Back to Series Index</a></p>
+</footer>
+<script>
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+</body>
+</html>
