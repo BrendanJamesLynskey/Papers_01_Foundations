@@ -495,7 +495,7 @@
     <h2>BERT: Pre-training of Deep Bidirectional Transformers</h2>
     <p style="font-family:var(--font-mono);font-size:0.85rem;">Devlin, Chang, Lee &amp; Toutanova (Google AI Language) &mdash; 2018 <span class="badge ok">NAACL 2019</span> <span class="badge">arXiv:1810.04805</span></p>
     <h3>The problem</h3>
-    <p>Earlier pretrained language models (ELMo, GPT-1) were <strong>unidirectional</strong>: they predicted the next token left-to-right, so each token's representation could only see prior context. For <em>understanding</em> tasks &mdash; classification, NER, span extraction &mdash; this is a handicap: the meaning of a word depends on tokens to its right as much as its left.</p>
+    <p>Earlier pretrained language models were <strong>unidirectional</strong> (GPT-1 predicted the next token left-to-right, so each token's representation could only see prior context) or only shallowly bidirectional (ELMo concatenated separately trained left-to-right and right-to-left models). For <em>understanding</em> tasks &mdash; classification, NER, span extraction &mdash; this is a handicap: the meaning of a word depends on tokens to its right as much as its left.</p>
     <h3>The contribution</h3>
     <p>BERT is an <strong>encoder-only</strong> Transformer pretrained with two self-supervised objectives that allow deep, jointly-bidirectional context:</p>
     <ul>
@@ -544,12 +544,12 @@
         </div>
         <div class="diagram-panel accent-border">
             <h4>One-shot</h4>
-            <p><code>Translate to French:</code><br><code>sea otter =&gt; loutre</code><br><code>cheese =&gt;</code></p>
+            <p><code>Translate to French:</code><br><code>sea otter =&gt; loutre de mer</code><br><code>cheese =&gt;</code></p>
             <p>One demonstration anchors the output format and pattern.</p>
         </div>
         <div class="diagram-panel accent-border">
             <h4>Few-shot</h4>
-            <p><code>Translate to French:</code><br><code>sea otter =&gt; loutre</code><br><code>plush =&gt; peluche</code><br><code>&hellip; (K examples)</code><br><code>cheese =&gt;</code></p>
+            <p><code>Translate to French:</code><br><code>sea otter =&gt; loutre de mer</code><br><code>plush =&gt; peluche</code><br><code>&hellip; (K examples)</code><br><code>cheese =&gt;</code></p>
             <p>K demonstrations in-context. No gradient updates &mdash; ever.</p>
         </div>
     </div>
